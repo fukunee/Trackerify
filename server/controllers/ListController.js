@@ -1,67 +1,50 @@
-const List = require('../models/List');
 const Board = require('../models/Board');
-const Card = require('../models/Card');
+const mongoose = require('mongoose');
 
 module.exports = {
+  //Error handling done in middleware
+  //Checks if the user is assigned to the board
+  //req.board contains the board document.
+
   async create(req, res) {
-    const boardId = req.body.boardId;
-
-    const parentBoard = await Board.findById(boardId);
-    if (!parentBoard) {
-      return res.status(403).send('A list needs a parent board');
-    }
-    const list = new List({
-      boardId,
-      title: req.body.title,
-      color: req.body.color
-    });
-
     try {
-      const savedList = await list.save();
-      const listId = savedList._id;
-      parentBoard.lists.addToSet(listId);
-      await parentBoard.save();
-      res.send(savedList.toJSON());
-    } catch (error) {
-      res.status(403).send({ error });
-    }
-  },
-  async show(req, res) {
-    const list = await List.findById(req.params.id).populate('cards');
-    if (!list) {
-      return res.status(403).send({ error: "List doesn't exist" });
-    }
-    res.send(list.toJSON());
-  },
-  async destroy(req, res) {
-    const id = req.params.id;
-    const list = await List.findById(id);
-    if (!list) {
-      return res.status(403).send({ error: "List doesn't exist" });
-    }
-    try {
-      const result = await List.findByIdAndDelete(id);
-      //removiung the list from the board
-      await Board.updateOne(
-        { _id: result._doc.boardId },
-        { $pullAll: { lists: [id] } }
-      );
-
-      const { deletedCount } = await Card.deleteMany({ list: id });
-      const response = {
-        ...result._doc,
-        deletedCount
+      const list = {
+        title: req.body.title,
+        color: req.body.color
       };
 
-      if (response) {
-        return res.send(response);
-      } else {
-        return res.status(403).send({ error: 'Something went wrong' });
-      }
+      req.board.lists.addToSet(list);
+      parentBoard = await req.board.save();
+      res.send(parentBoard);
     } catch (error) {
-      console.log(error);
+      res.status(500).send({ error: 'Something went wrong.' });
+    }
+  },
+  async update(req, res) {
+    const { listId, title } = req.body;
+    const board = req.board;
 
-      res.send({ error: error });
+    try {
+      const list = board.lists.id(listId);
+
+      list.set({ title });
+
+      response = await board.save();
+      res.send(response);
+    } catch (error) {
+      res.status(500).send({ error: 'Something went wrong.' });
+    }
+  },
+  async destroy(req, res) {
+    const { listId } = req.params;
+    const board = req.board;
+
+    try {
+      board.lists.pull({ _id: listId });
+      response = await board.save();
+      res.send(response);
+    } catch (error) {
+      res.status(500).send({ error: 'Something went wrong.' });
     }
   }
 };
