@@ -1,9 +1,14 @@
 const router = require('express').Router();
 const verifyToken = require('../policies/verifyToken');
+const userAssignedToBoard = require('../policies/userAssignedToBoard');
 const CommentController = require('../controllers/CommentController');
 
-router.post('/', verifyToken, CommentController.create);
-//router.get('/:id', verifyToken, CommentController.show);
-router.delete('/:id', verifyToken, CommentController.destroy);
+router.post('/', verifyToken, userAssignedToBoard, CommentController.create);
+router.delete(
+  '/:boardId&:listId&:cardId&:commentId',
+  verifyToken,
+  userAssignedToBoard,
+  CommentController.destroy
+);
 
 module.exports = router;
