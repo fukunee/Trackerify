@@ -24,15 +24,34 @@ module.exports = {
   async update(req, res) {
     const { listId, title, description, cardId } = req.body;
     const board = req.board;
-
+    //TODO Querying twice, not efficient
     try {
-      const card = board.lists.id(listId).cards.id(cardId);
-
-      card.set({ title, description });
-
-      response = await board.save();
+      // board.lists
+      //   .id(listId)
+      //   .cards.id(cardId)
+      //   .set({ title, description });
+      const response = await Board.findOneAndUpdate(
+        {
+          'lists.cards._id': cardId
+        },
+        {
+          $set: {
+            //Not sure what the [] after $ does
+            'lists.$[].cards.$[element].title': title,
+            'lists.$[].cards.$[element].description': description
+          }
+        },
+        {
+          arrayFilters: [{ 'element._id': cardId }],
+          useFindAndModify: false,
+          new: true
+        }
+      );
+      // response = await board.save();
       res.send(response);
     } catch (error) {
+      console.log(error);
+
       res.status(500).send({ error: 'Something went wrong.' });
     }
   },
@@ -42,41 +61,12 @@ module.exports = {
 
     try {
       board.lists.id(listId).cards.pull({ _id: cardId });
-      response = await board.save();
+      const response = await board.save();
       res.send(response);
     } catch (error) {
+      console.log(error);
+
       res.status(500).send({ error: 'Something went wrong.' });
     }
   }
 };
-
-// module.exports = {
-//   async create(req, res) {
-//     const boardId = req.body.boardId;
-//     const listId = req.body.listId;
-//     const title = req.body.title;
-//     const description = req.body.description;
-//     const parentBoard = await Board.findById(boardId);
-//     if (!parentBoard) {
-//       return res.status(400).send('A list needs a parent board');
-//     }
-//     const parentList = await parentBoard.lists.id(listId);
-//     console.log(parentList);
-
-//     if (!parentList) {
-//       return res.status(400).send('A list needs a parent list');
-//     }
-//     const card = {
-//       title,
-//       description
-//     };
-
-//     try {
-//       await parentList.cards.addToSet(card);
-//       const response = await parentBoard.save();
-//       res.send(response.toJSON());
-//     } catch (error) {
-//       res.status(403).send({ error });
-//     }
-//   }
-// };
